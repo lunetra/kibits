@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.wxt/
+public/themes/
+src/themes/manifest.generated.ts
+*.log
+.env*
+public/fonts/

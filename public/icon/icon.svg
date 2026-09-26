@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="28" fill="#000"/>
+  <!-- speech bubble whose tail is a knight's L-move -->
+  <path d="M24 26h80v58H64L44 104V84H24z" fill="none" stroke="#EDEDEF" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M52 68V46h14v-8" fill="none" stroke="#EDEDEF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="80" cy="38" r="6.5" fill="#EDEDEF"/>
+</svg>
