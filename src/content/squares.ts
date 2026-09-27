@@ -15,9 +15,9 @@ const CONTAINERS = `${COMMENTARY_SLOT}, .kbz-tr, .kbz-orig, ${SUMMARY_TEXT}`;
 const SKIP = `${SAN_WRAPPER}, button, a, .kbz-line, .kbz-tools, .kbz-fail, .kbz-skel, .kbz-sq-layer`;
 /** A lone square: not part of SAN ("Nf3", "exd5"), not a promotion ("e8=Q"), not inside a word. */
 const SQUARE_RE = /(?<![A-Za-z0-9=])([a-h][1-8])(?![A-Za-z0-9=])/g;
-/** Extra hover area around the text, in px. */
-const PAD_X = 4;
-const PAD_Y = 1;
+/** Hover area around the text, in px. The visible box is drawn tighter (CSS ::before), leaving a gap. */
+const PAD_X = 5;
+const PAD_Y = 2;
 
 export function findSquares(text: string): Array<{ index: number; square: string }> {
   return [...text.matchAll(SQUARE_RE)].map((m) => ({ index: m.index!, square: m[1]! }));

@@ -35,8 +35,9 @@ ${SUMMARY_TEXT}[data-kbz-done="tr"],${SUMMARY_TEXT}[data-kbz-done="pending"]{dis
 @media (prefers-reduced-motion:reduce){.kbz-skel span{animation:none}}
 [data-kbz-chip=""]{cursor:pointer}
 .kbz-sq-layer{position:relative;display:block;width:0;height:0;margin:0;padding:0;overflow:visible;pointer-events:none;z-index:1}
-.kbz-sq{position:absolute;box-sizing:border-box;border-radius:5px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);pointer-events:auto;cursor:default}
-.kbz-sq.hot{background:rgba(255,255,255,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.28)}
+.kbz-sq{position:absolute;box-sizing:border-box;pointer-events:auto;cursor:default}
+.kbz-sq::before{content:"";position:absolute;inset:1px 3px;border-radius:4px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.kbz-sq.hot::before{background:rgba(255,255,255,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.28)}
 .kbz-line{display:flex;align-items:center;gap:8px;margin:10px 0 -2px;padding:4px 4px 4px 4px;border-radius:12px;background:rgba(255,255,255,.05);font:500 12.5px/1.4 'Inter Variable',system-ui,sans-serif;direction:ltr;animation:kbz-in .16s ease-out}
 .kbz-line[data-kind="replay"]{background:none;padding:0}
 .kbz-line button{all:unset;display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:8px;cursor:pointer;transition:background .14s,opacity .14s}
