@@ -44,9 +44,20 @@ export const REVIEW_PATH_RE = /^\/games\/[\w-]+/;
  * Commentary tab is open. Each half-move is a button, in order, so the button's index === the API's
  * plyIndex (e4 = 0). The current move's button has the class below (others have `border-transparent`).
  */
-export const MOVE_LIST_BUTTON = '[data-move-list-scroll-container] button';
+export const MOVE_LIST_BUTTON = '[data-move-list-scroll-container] > div > div > div > button';
+/**
+ * Exploring a line (e.g. after a replay) inserts a variation box into the move list: its moves are nested
+ * deeper (so MOVE_LIST_BUTTON above, with its fixed depth, only matches the game's own moves), the current
+ * variation move gets CURRENT_MOVE_CLASS, and no game move is highlighted. Verified live 27 Sep 2026.
+ */
+export const ANY_MOVE_BUTTON = '[data-move-list-scroll-container] button';
+/** Move buttons in move rows (game and line): `div.grid` rows = [move number, white move, spacer, black move]. */
+export const LINE_MOVE_BUTTON = '[data-move-list-scroll-container] div.grid > button';
 /** Inside a move button: the full SAN ("Nc6"); the eval ("+0.6") is a separate span. */
 export const MOVE_LIST_SAN = 'span.truncate';
+
+/** Review navigation: jump to the starting position. */
+export const GO_TO_START = 'button[aria-label="Go to start"]';
 
 /** SITE-MAP §4: the WebGPU board canvas. */
 export const BOARD_CANVAS = '[aria-label="Game board"] canvas';

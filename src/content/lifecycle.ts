@@ -9,7 +9,10 @@ import { clearOriginal, installOriginal, scanOriginal, setShortcuts } from './or
 import { Relay } from './relay';
 import { injectStyle, preloadFont, removeStyles, setPrehide } from './style';
 import { clearSummary, scanSummary } from './summary';
-import { installArrows, setChips, setFlipped, uninstallArrows } from './arrows';
+import { setFlipped } from './board';
+import { installChips, scanChips, setChips, uninstallChips } from './chips';
+import { installLine, play, scanLine, uninstallLine } from './line';
+import { installSquares, scanSquares, uninstallSquares } from './squares';
 import { clearRetry, recordFailure, scanRetry } from './retry';
 import { removeUi } from './ui';
 
@@ -39,6 +42,9 @@ export function start() {
     if (translationActive(settings)) scanRetry(relay, schedule);
     if (summaryOn(settings)) scanSummary(settings.translation.lang);
     if (translationActive(settings)) scanOriginal(settings.translation.lang, schedule);
+    scanChips();
+    scanLine(schedule);
+    scanSquares();
   };
   const schedule = () => {
     if (scheduled) return;
@@ -72,7 +78,9 @@ export function start() {
     setPrehide(summaryOn(s));
     const onBody = () => {
       injectStyle();
-      installArrows();
+      installChips(play);
+      installLine();
+      installSquares();
       setShortcuts(s.translation.peekKey, s.translation.toggleKey);
       installOriginal();
       if (!summaryOn(s)) clearSummary();
@@ -90,7 +98,9 @@ export function start() {
     observer?.disconnect();
     observer = null;
     clearOriginal();
-    uninstallArrows();
+    uninstallChips();
+    uninstallLine();
+    uninstallSquares();
     clearSlots();
     clearSummary();
     clearRetry();

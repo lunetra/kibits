@@ -2,12 +2,13 @@
 // Fails open: any error, timeout or disabled state → the site's original Response.
 import { LANGUAGES, type LangCode } from '../shared/languages';
 import type { ErrorCode, MainConfig, PlyHit, RetryNode, RetryResult, TranslateRes } from '../shared/messages';
-import { ATLAS_RE, COMMENTARY_URL_RE } from '../site/selectors';
+import { ATLAS_RE, COMMENTARY_SLOT, COMMENTARY_URL_RE, SLOT_SKELETON } from '../site/selectors';
 import { call, configReady, getConfig, onRetry, send } from './bridge';
 import { playersFromTitle, userColorFrom } from '../site/game';
 import { waitForPly } from '../site/ply';
 import { getFlipped } from './gpu-hook';
-import { apply, collect, contentPlain, nodePlain, probesOf, sansOf, type Block, type Inline } from './richtext';
+import { apply, collect, contentPlain, demoteChips, nodePlain, probesOf, sansOf, type Block, type Inline } from './richtext';
+import { gameMoves, isRealMove } from '../site/moves';
 
 /** Hard cap for one translation round-trip (the SW may wait for a rate-limited key; it gives up at ~22 s). */
 const HARD_CAP_MS = 25_000;
@@ -96,6 +97,23 @@ async function translatePly(json: CommentaryJson, gameId: string | undefined, pl
   return { ok: true, body, content, original, probes };
 }
 
+/** Demote chips that aren't legal moves in this position to plain text (see demoteChips). */
+function withRealChips(json: CommentaryJson, plyIndex: number | undefined): CommentaryJson {
+  try {
+    const moves = gameMoves();
+    const c = json.commentary;
+    if (typeof plyIndex !== 'number' || !c?.content || moves.length <= plyIndex) return json;
+    const content = demoteChips(c.content, (san, color) => isRealMove(moves, plyIndex, { san, color }));
+    return content === c.content ? json : { ...json, commentary: { ...c, content } };
+  } catch {
+    return json;
+  }
+}
+
+/** The ply of the site's most recent commentary request: the one its loading skeleton is waiting for. */
+let latestPly: number | null = null;
+const skeletonShowing = () => !!document.querySelector(`${COMMENTARY_SLOT} ${SLOT_SKELETON}`);
+
 async function translateResponse(res: Response, ref: PlyRef | null, lang: LangCode, signal: AbortSignal | null | undefined): Promise<Response> {
   if (!res.ok) return res;
   const json = (await res.clone().json()) as CommentaryJson;
@@ -107,7 +125,14 @@ async function translateResponse(res: Response, ref: PlyRef | null, lang: LangCo
   // site waiting (it shows its skeleton for this move) until they come back — or until the request is aborted.
   const plyIndex = ref?.plyIndex ?? c.plyIndex;
   if (typeof plyIndex === 'number') {
-    const onScreen = await waitForPly(plyIndex, signal, () => !translating(getConfig()));
+    // On screen = you're on that move, or the commentary box is loading exactly this request (e.g. while you
+    // explore a line, when "which move" can't be read). Without the second test that case waited forever.
+    const onScreen = await waitForPly(
+      plyIndex,
+      signal,
+      () => !translating(getConfig()),
+      () => latestPly === plyIndex && skeletonShowing(),
+    );
     if (!onScreen) {
       if (signal?.aborted) throw new DOMException('The operation was aborted.', 'AbortError');
       return res; // translation switched off meanwhile
@@ -115,7 +140,7 @@ async function translateResponse(res: Response, ref: PlyRef | null, lang: LangCo
   }
 
   const gameId = ref?.gameId ?? c.gameId;
-  const r = await translatePly(json, gameId, plyIndex, lang);
+  const r = await translatePly(withRealChips(json, plyIndex), gameId, plyIndex, lang);
   // Settings may have changed while we waited: re-check before swapping content.
   if (!translating(getConfig()) || getConfig()!.translate.lang !== lang) return res;
   if (!r.ok) {
@@ -174,6 +199,7 @@ async function reportSans(res: Response, plyIndex: number) {
 async function handleCommentary(origFetch: typeof fetch, input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const cfg = await configReady();
   const ref = await plyRefOf(input, init);
+  if (ref) latestPly = ref.plyIndex;
   if (!translating(cfg)) {
     const res = await origFetch.call(window, input, init);
     if (cfg?.enabled && ref) void reportSans(res, ref.plyIndex); // hover arrows work in English too

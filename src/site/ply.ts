@@ -1,7 +1,10 @@
 // Which move is the user looking at? Used to translate a ply only while it's on screen.
-import { CURRENT_MOVE_CLASS, MOVE_LIST_BUTTON } from './selectors';
+import { ANY_MOVE_BUTTON, CURRENT_MOVE_CLASS, MOVE_LIST_BUTTON } from './selectors';
 
-/** plyIndex on screen; -1 = Game Summary (no move selected); null = can't tell (fail open). */
+/**
+ * plyIndex of the game move on screen; -1 = Game Summary, or a variation (see inVariation());
+ * null = can't tell (fail open).
+ */
 export function currentPly(): number | null {
   const buttons = document.querySelectorAll(MOVE_LIST_BUTTON);
   if (!buttons.length) return null;
@@ -13,12 +16,18 @@ export function currentPly(): number | null {
  * Resolve true once `ply` is on screen (or we can't tell), false if the request was aborted or `cancelled()`
  * says translation no longer applies. Polls cheaply while waiting; nothing runs once it settles.
  */
-export function waitForPly(ply: number, signal: AbortSignal | null | undefined, cancelled: () => boolean): Promise<boolean> {
+export function waitForPly(
+  ply: number,
+  signal: AbortSignal | null | undefined,
+  cancelled: () => boolean,
+  /** Extra "it's on screen" test, e.g. the commentary box is loading this very request. */
+  showing: () => boolean = () => false,
+): Promise<boolean> {
   return new Promise((resolve) => {
     const check = () => {
       if (signal?.aborted || cancelled()) return done(false);
       const cur = currentPly();
-      if (cur === null || cur === ply) return done(true);
+      if (cur === null || cur === ply || showing()) return done(true);
     };
     let timer: ReturnType<typeof setInterval> | undefined;
     const done = (v: boolean) => {
@@ -31,4 +40,11 @@ export function waitForPly(ply: number, signal: AbortSignal | null | undefined, 
     timer = setInterval(check, 150);
     check();
   });
+}
+
+/** True while the board shows a line off the game (a variation you're exploring). */
+export function inVariation(): boolean {
+  const game = new Set(document.querySelectorAll(MOVE_LIST_BUTTON));
+  for (const b of document.querySelectorAll(ANY_MOVE_BUTTON)) if (!game.has(b) && b.classList.contains(CURRENT_MOVE_CLASS)) return true;
+  return false;
 }

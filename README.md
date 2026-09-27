@@ -29,7 +29,9 @@ The translation happens *before* the site shows the text, so you never see Engli
 - **See the original any time:** the small **Original** button under the commentary swaps the text to the
   English in place (click again to go back), or press **O**, or hold **Alt/Option** and hover. Both shortcuts
   can be changed in the panel.
-- **Hover a move chip** (e.g. "♘ a4") and the site's own arrow for that move appears on the board.
+- **Move chips come alive:** hover one (e.g. "♘ a4") to see the site's own arrow for that move; click it to
+  play the move on the board (for an alternative like "better was a4", the board first steps back to the
+  position where it could have been played).
 - If a move can't be translated you see the English, a clear reason (e.g. "Daily free limit reached…"), and a
   **Try again** button.
 - A chess glossary keeps terminology consistent. Edit `glossary/fa.json` / `glossary/de.json` to taste.

@@ -5,8 +5,8 @@
 import { LANGUAGES, type LangCode } from '../shared/languages';
 import type { PeekKey, ToggleKey } from '../shared/settings';
 import { COMMENTARY_SLOT, SAN_WRAPPER, SUMMARY_TEXT } from '../site/selectors';
-import { chipsOf } from './arrows';
-import { originals } from './decorate';
+import { chipsOf } from './chips';
+import { originals, type Original } from './decorate';
 import { renderParagraphs } from './render';
 import { currentPly } from '../site/ply';
 
@@ -38,15 +38,16 @@ function peekHeld(e: KeyboardEvent | MouseEvent): boolean {
 const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 
-/** Our English rendering of a translated per-move slot. */
+/** Our English rendering of a translated per-move slot, and which original it was built from. */
 const origBoxes = new WeakMap<Element, HTMLElement>();
+const boxSource = new WeakMap<HTMLElement, Original>();
 const tools = new WeakMap<Element, HTMLElement>();
 
 /** Translated blocks currently on the page: the per-move slot, the Game Summary, a retried move. */
 function blocks(): HTMLElement[] {
   const out: HTMLElement[] = [];
   const slot = document.querySelector<HTMLElement>(`${COMMENTARY_SLOT}[data-kbz="tr"]`);
-  if (slot && originals.get(slot)?.nodes) out.push(slot);
+  if (slot && originals.get(slot)) out.push(slot);
   out.push(...document.querySelectorAll<HTMLElement>('.kbz-tr'));
   return out;
 }
@@ -68,18 +69,30 @@ function showOriginal(b: HTMLElement) {
     return;
   }
   // Per-move slot: React shows the translation, so render the English ourselves (with the site's chips).
+  // The site reuses the slot element from move to move, so rebuild whenever its original changed.
+  const o = originals.get(b);
+  if (!o) return;
   let box = origBoxes.get(b);
-  if (!box?.isConnected || box.previousElementSibling !== b) {
-    const o = originals.get(b);
-    if (!o?.nodes) return;
+  if (!box?.isConnected || box.previousElementSibling !== b || boxSource.get(box) !== o) {
+    box?.remove();
     box = document.createElement('div');
     box.className = 'kbz-orig';
     box.setAttribute('lang', 'en');
     box.setAttribute('dir', 'ltr');
     const ply = currentPly() ?? -1;
-    box.append(renderParagraphs(o.nodes, [...b.querySelectorAll(SAN_WRAPPER)], (i) => chipsOf(ply)?.[i]));
+    if (o.nodes) box.append(renderParagraphs(o.nodes, [...b.querySelectorAll(SAN_WRAPPER)], (i) => chipsOf(ply)?.[i]));
+    else {
+      // Cached before chip positions were stored: plain text still does the job.
+      for (const para of o.plain.split(/\n{2,}/)) {
+        const p = document.createElement('div');
+        p.className = 'kbz-p';
+        p.textContent = para;
+        box.append(p);
+      }
+    }
     b.after(box);
     origBoxes.set(b, box);
+    boxSource.set(box, o);
   }
   b.setAttribute('data-kbz-swap', '');
 }

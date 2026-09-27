@@ -26,3 +26,9 @@ Chrome MV3 extension "Kibitz" for taketaketake.com: translate per‑move Game Re
 - Messages between contexts are typed (`src/shared/messages.ts`), discriminated unions with a `type` field.
 - Settings schema is versioned (`schemaVersion`) with a migration function.
 - Code comments and UI copy in English.
+
+## Git workflow
+- **Commit after every change.** When a change is done (typecheck + tests + build pass), commit everything
+  right away with a clear message, then push to `origin main`. Don't let work pile up uncommitted.
+- Commit as the user's own git identity, with no AI/Claude attribution lines.
+- Before committing, make sure no personal data slips in (API keys, real usernames, game IDs in fixtures/docs).

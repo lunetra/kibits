@@ -3,7 +3,7 @@
 import type { ErrorCode, RetryResult } from '../shared/messages';
 import { currentPly } from '../site/ply';
 import { COMMENTARY_SLOT, REVIEW_PATH_RE, SAN_WRAPPER, SLOT_SKELETON } from '../site/selectors';
-import { chipsOf } from './arrows';
+import { chipsOf } from './chips';
 import { mark, originals } from './decorate';
 import { renderParagraphs } from './render';
 import type { Relay } from './relay';

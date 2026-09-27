@@ -52,3 +52,19 @@ describe('richtext', () => {
     expect(plan.items).toHaveLength(0);
   });
 });
+
+describe('demoteChips', () => {
+  it('turns non-moves into text and keeps real moves', async () => {
+    const { demoteChips } = await import('../src/main/richtext');
+    const content: Block[] = [{ type: 'paragraph', children: [
+      { type: 'san', san: 'a4', color: 'white' },
+      { text: ' challenges the bishop on ' },
+      { type: 'san', san: 'c5', color: 'white' },
+    ] }];
+    const out = demoteChips(content, (san) => san === 'a4');
+    expect(out[0]!.children).toEqual([{ type: 'san', san: 'a4', color: 'white' }, { text: ' challenges the bishop on ' }, { text: 'c5' }]);
+    const s = serialize(out[0]!.children!, true);
+    expect(s.source).toBe('⟦0⟧ challenges the bishop on c5');
+    expect(demoteChips(content, () => true)).toBe(content);
+  });
+});

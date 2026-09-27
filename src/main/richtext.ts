@@ -136,3 +136,24 @@ export function sansOf(content: Block[]): Array<{ san: string; color?: 'white' |
       }),
   );
 }
+
+/**
+ * Turn move chips that aren't real moves into plain text (the site's generator sometimes tags a square, e.g.
+ * "the bishop on c5", as a pawn move). Returns the input unchanged when nothing needs fixing.
+ */
+export function demoteChips(content: Block[], isMove: (san: string, color?: 'white' | 'black') => boolean): Block[] {
+  let changed = false;
+  const out = content.map((b) => {
+    if (!Array.isArray(b.children)) return b;
+    const children = b.children.map((n) => {
+      const t = n as { type?: string; san?: unknown; color?: unknown };
+      if (t.type !== 'san' || typeof t.san !== 'string') return n;
+      const color = t.color === 'white' || t.color === 'black' ? t.color : undefined;
+      if (isMove(t.san, color)) return n;
+      changed = true;
+      return { text: t.san };
+    });
+    return { ...b, children };
+  });
+  return changed ? out : content;
+}

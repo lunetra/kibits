@@ -6,7 +6,7 @@ import { normText } from '../shared/notation';
 import { COMMENTARY_SLOT, SLOT_SKELETON } from '../site/selectors';
 import type { RetryNode } from '../shared/messages';
 
-interface Entry { lang: LangCode; probes: string[]; original: string; nodes?: RetryNode[][] }
+interface Entry { lang: LangCode; probes: string[]; original: string; nodes?: RetryNode[][]; orig?: Original }
 
 /** The English behind a translated block: plain text, plus chip-aware nodes when we have them. */
 export interface Original { plain: string; nodes?: RetryNode[][] }
@@ -48,7 +48,8 @@ export function scanSlots(lang: LangCode) {
     const e = match(text);
     if (e) {
       mark(slot, e.lang);
-      originals.set(slot, { plain: e.original, nodes: e.nodes });
+      // One stable object per move, so consumers can tell "same move" from "new move" by identity.
+      originals.set(slot, (e.orig ??= { plain: e.original, nodes: e.nodes }));
     } else if (lang === 'fa' && PERSIAN.test(text)) {
       // Translated text we have no record of (e.g. message raced the render): still get font + RTL right.
       mark(slot, 'fa');

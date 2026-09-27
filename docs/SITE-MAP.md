@@ -152,6 +152,14 @@ div.relative.aspect-square[aria-label="Game board"][aria-keyshortcuts="F X Space
   highlighted = Game Summary view.
 - The site passes an AbortSignal to the commentary fetch but did **not** abort when the user stepped on
   quickly; the requests simply resolve later. Kibitz holds such a response until that move is on screen.
+- **Variations (exploring a line):** playing a move off the game (drag, or click piece → square) inserts a
+  variation box into the move list: its moves are nested deeper than the game's (game moves are always
+  `[data-move-list-scroll-container] > div > div > div > button`), the current variation move gets
+  `border-foreground`, no game move is highlighted, and the box has an "Exit variation" button. The site does
+  **not** fetch commentary for variation positions; the commentary box keeps the last game move's text.
+- Board input accepts synthetic events only with the mouse's own `pointerId: 1` (plus mouse events).
+  Click-moves animate; drag-drops land instantly. Two same-task clicks (piece, target) play the move without
+  the legal-move dots ever being painted.
 - `Chessboard-*.js` now imports the atlases through tiny modules (`regular4x-<hash>.js` →
   `/assets/regular4x-<hash>.png`). Re-verify that the PNG is still loaded with `fetch` before relying on
   piece substitution (M5).
