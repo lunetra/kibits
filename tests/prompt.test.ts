@@ -9,9 +9,9 @@ describe('game context', () => {
   });
   it('tells the model who "you" is and maps names to colours', async () => {
     const { contextLines } = await import('../src/background/prompt');
-    const l = contextLines({ items: [], hints: [], context: { userColor: 'white', players: { white: 'Elliot', black: 'bob' } } });
+    const l = contextLines({ items: [], hints: [], context: { userColor: 'white', players: { white: 'alice', black: 'bob' } } });
     expect(l).toContain('The reader plays White');
-    expect(l).toContain('"Elliot" = White, "bob" = Black');
+    expect(l).toContain('"alice" = White, "bob" = Black');
   });
 });
 
