@@ -45,43 +45,64 @@ export function scanSquares() {
     }
   }
   CSS.highlights.set('kbz-square', new Highlight(...hits.map((h) => h.range)));
-  if (hovered && !hits.includes(hovered)) setHover(null);
+  // The site re-renders the commentary (new text nodes) e.g. right after we mark a square. That must not
+  // count as "mouse left": re-check what's under the pointer; the mark stays if it's the same square.
+  if (hovered) evaluate();
 }
 
 // ---------- hover → mark the square on the board ----------
 
 let hovered: Hit | null = null;
 let marked: { square: string; ply: number | null } | null = null;
+let pointer: { x: number; y: number; target: EventTarget | null } | null = null;
 
+/**
+ * Hover state is "which square name is under the pointer". The board is touched only when that changes:
+ * one right-click to mark on enter, one to unmark on leave — exactly like doing it by hand.
+ */
 function setHover(h: Hit | null) {
-  if (h?.square === hovered?.square && h?.range === hovered?.range) return;
   hovered = h;
   if (h) CSS.highlights.set('kbz-square-hot', new Highlight(h.range));
   else CSS.highlights.delete('kbz-square-hot');
-  // Unmark the previous square (the site keeps marks per position; if the move changed it's gone already).
-  if (marked && (!h || marked.square !== h.square)) {
+  const want = h?.square ?? null;
+  if (marked?.square === want) return;
+  if (marked) {
+    // The site keeps marks per position; if the move changed, it's gone already.
     if (marked.ply === currentPly()) rightClick(marked.square);
     marked = null;
   }
-  if (h && !marked) {
-    rightClick(h.square);
-    marked = { square: h.square, ply: currentPly() };
+  if (want) {
+    rightClick(want);
+    marked = { square: want, ply: currentPly() };
   }
 }
 
-const inside = (r: DOMRect, x: number, y: number) => x >= r.left - 2 && x <= r.right + 2 && y >= r.top - 2 && y <= r.bottom + 2;
+const inside = (r: DOMRect, x: number, y: number) => x >= r.left - 1 && x <= r.right + 1 && y >= r.top - 1 && y <= r.bottom + 1;
+
+function evaluate() {
+  if (!pointer || !hits.length) return setHover(null);
+  const { x, y, target } = pointer;
+  if (!(target instanceof Element) || !target.isConnected || !target.closest(CONTAINERS)) {
+    // The element under the pointer may have been replaced by a re-render: ask the page again.
+    const el = document.elementFromPoint(x, y);
+    if (!el?.closest(CONTAINERS)) return setHover(null);
+  }
+  setHover(hits.find((h) => [...h.range.getClientRects()].some((r) => inside(r, x, y))) ?? null);
+}
 
 let frame = 0;
 function onMove(e: MouseEvent) {
+  pointer = { x: e.clientX, y: e.clientY, target: e.target };
   if (frame) return;
   frame = requestAnimationFrame(() => {
     frame = 0;
-    if (!hits.length) return setHover(null);
-    const t = e.target;
-    if (!(t instanceof Element) || !t.closest(CONTAINERS)) return setHover(null);
-    const h = hits.find((x) => [...x.range.getClientRects()].some((r) => inside(r, e.clientX, e.clientY)));
-    setHover(h ?? null);
+    evaluate();
   });
+}
+
+function onLeave() {
+  pointer = null;
+  setHover(null);
 }
 
 /** A real click on the board: the site may clear marks itself, so forget ours. */
@@ -94,6 +115,7 @@ export function installSquares() {
   if (installed || !supported()) return;
   installed = true;
   document.addEventListener('mousemove', onMove, { passive: true });
+  document.documentElement.addEventListener('mouseleave', onLeave, { passive: true });
   document.addEventListener('pointerdown', onBoardPointer, { capture: true, passive: true });
 }
 
@@ -101,6 +123,7 @@ export function uninstallSquares() {
   if (!installed) return;
   installed = false;
   document.removeEventListener('mousemove', onMove);
+  document.documentElement.removeEventListener('mouseleave', onLeave);
   document.removeEventListener('pointerdown', onBoardPointer, { capture: true });
   setHover(null);
   hits = [];
