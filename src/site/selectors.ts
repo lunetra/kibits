@@ -10,6 +10,16 @@ export const ATLAS_RE = /\/assets\/(regular|newspaper|delta)([124])x-[\w-]+\.png
 /** SITE-MAP §4a: board colours uniform. */
 export const BOARD_UNIFORM = { label: 'globalUniformBuffer', size: 208 } as const;
 
+/** SITE-MAP §4d: other buffers carrying colours (TypeGPU labels are shared, so size identifies them). */
+export const GPU_BUFFERS = {
+  /** squareOverlay[64] vec4 (+ uniqueInlay, checkOverlay…): last-move squares. Index = rank*8+file, a1 = 0. */
+  squares: { label: 'uniformBuffer', size: 3088 },
+  /** Coordinate font uniform: [0..3] dark colour, [4..7] light colour, then glyph metrics. */
+  notation: { label: 'uniformBuffer', size: 304 },
+  /** Arrow vertices, 8 floats each, rgba at +4. The site's right-click arrow colour is below. */
+  arrows: { label: 'vertexBuffer', size: 36864, siteColor: [0.318, 0.749, 0.498] as const },
+} as const;
+
 /** SITE-MAP §2: scroll container of the Commentary tab. */
 export const REVIEW_SCROLL = '.game-review-scrollbar';
 
@@ -35,4 +45,9 @@ export const REVIEW_PATH_RE = /^\/games\/[\w-]+/;
  * plyIndex (e4 = 0). The current move's button has the class below (others have `border-transparent`).
  */
 export const MOVE_LIST_BUTTON = '[data-move-list-scroll-container] button';
+/** Inside a move button: the full SAN ("Nc6"); the eval ("+0.6") is a separate span. */
+export const MOVE_LIST_SAN = 'span.truncate';
+
+/** SITE-MAP §4: the WebGPU board canvas. */
+export const BOARD_CANVAS = '[aria-label="Game board"] canvas';
 export const CURRENT_MOVE_CLASS = 'border-foreground';

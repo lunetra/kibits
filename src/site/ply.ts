@@ -1,5 +1,5 @@
 // Which move is the user looking at? Used to translate a ply only while it's on screen.
-import { CURRENT_MOVE_CLASS, MOVE_LIST_BUTTON } from '../site/selectors';
+import { CURRENT_MOVE_CLASS, MOVE_LIST_BUTTON } from './selectors';
 
 /** plyIndex on screen; -1 = Game Summary (no move selected); null = can't tell (fail open). */
 export function currentPly(): number | null {

@@ -124,3 +124,15 @@ export function contentPlain(content: Block[]): string {
     .map((b) => plainOf(b.children!))
     .join('\n\n');
 }
+
+/** Move chips (san nodes) in render order, for hover arrows. */
+export function sansOf(content: Block[]): Array<{ san: string; color?: 'white' | 'black' }> {
+  return content.flatMap((b) =>
+    (b.children ?? [])
+      .filter((n) => (n as { type?: string }).type === 'san')
+      .map((n) => {
+        const c = (n as { color?: unknown }).color;
+        return { san: String((n as { san?: unknown }).san ?? ''), color: c === 'white' || c === 'black' ? c : undefined };
+      }),
+  );
+}

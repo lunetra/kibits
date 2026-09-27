@@ -158,6 +158,20 @@ div.relative.aspect-square[aria-label="Game board"][aria-keyshortcuts="F X Space
 - Default "Clean" piece colours (from regular4x): white body `#FCFCFC`, outline `#504464`; black body ≈ `#3E3850`,
   outline `#201C28`, soft white halo. Board presets are tuned against these.
 
+## 4d. Every board colour (verified live 27 Sep 2026, from the TypeGPU shader source in `Chessboard-*.js`)
+Buffer labels are shared (`uniformBuffer` is used by several pipelines), so match on **label + size**.
+| Buffer | Layout | Drives |
+|---|---|---|
+| `globalUniformBuffer` 208 B | `darkGradient`(0–15), `lightGradient`(16–31), `checkCenterColor`(32), `checkEdgeColor`(36), `selectedColor`(40, = theme `squareHighlights.move.neutral` @ .8), `guidedSourceColor`(44), `flipped`(48) | squares, king-in-check **and right-click square marks** (radial centre→edge), selected piece, orientation |
+| `uniformBuffer` 3088 B | `squareOverlay[64]` vec4 first (index = rank·8+file, a1 = 0), then `uniqueInlayOverlay[64]`, `checkOverlay[64]`, `selectedSquare`, … | **last-move squares**: "from" = move colour, "to" = same colour mixed toward white (e.g. `#9F90FF` / `#BBB1FF`) |
+| `uniformBuffer` 304 B | [0–3] dark colour, [4–7] light colour, then MSDF glyph metrics (`notation-*.png`) | **coordinates** (a–h, 1–8) |
+| `vertexBuffer` 36864 B | 8 floats per vertex, rgba at +4 | arrows: right-click arrows `(0.318, 0.749, 0.498, 0.8)`, engine arrow `(1,1,1,0.8)` |
+- The site writes `globalUniformBuffer` only at start-up / theme change; `uniformBuffer` 3088 on every move;
+  `vertexBuffer` whenever arrows change. Kibitz recolours each write (a copy) in `src/main/gpu-hook.ts`.
+- Right-button drag on the canvas draws an arrow even with synthetic `PointerEvent`s (not used; Kibitz draws
+  its hover arrows as its own SVG overlay).
+- Page title is `<white> vs <black> · Take Take Take`; `flipped` = Black at the bottom (the reader's side).
+
 ## 5. Other endpoints seen
 - `GET https://taketaketake.com/api/auth/convex/token`
 - `wss://convex.taketaketake.com/api/1.43.0/sync` (Convex realtime; version in path)

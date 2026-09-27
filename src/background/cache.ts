@@ -32,6 +32,8 @@ export interface PlyValue {
   /** Original English plain text, for "hover original". */
   original: string;
   probes: string[];
+  /** English original with chip positions, for the "Original" toggle. */
+  originalNodes?: import('../shared/messages').RetryNode[][];
   ts: number;
 }
 
@@ -134,7 +136,7 @@ export class TranslationCache {
     try {
       const db = await this.open();
       const row = (await req(db.transaction(PLY).objectStore(PLY).get(k))) as (PlyValue & { k: string }) | undefined;
-      return row ? { body: row.body, original: row.original, probes: row.probes, ts: row.ts } : undefined;
+      return row ? { body: row.body, original: row.original, probes: row.probes, originalNodes: row.originalNodes, ts: row.ts } : undefined;
     } catch {
       return undefined;
     }

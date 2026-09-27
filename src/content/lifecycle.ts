@@ -4,11 +4,14 @@ import type { MainConfig } from '../shared/messages';
 import { translationActive, type Settings } from '../shared/settings';
 import { loadSettings, onSettingsChanged } from '../shared/settings-store';
 import { boardToConfig, findBoard, PIECE_SETS } from '../themes';
-import { clearSlots, rememberPly, scanSlots, setHover } from './decorate';
+import { clearSlots, rememberPly, scanSlots } from './decorate';
+import { clearOriginal, installOriginal, scanOriginal, setShortcuts } from './original';
 import { Relay } from './relay';
 import { injectStyle, preloadFont, removeStyles, setPrehide } from './style';
 import { clearSummary, scanSummary } from './summary';
-import { removeUi, toast } from './ui';
+import { installArrows, setChips, setFlipped, uninstallArrows } from './arrows';
+import { clearRetry, recordFailure, scanRetry } from './retry';
+import { removeUi } from './ui';
 
 export function toMainConfig(s: Settings): MainConfig {
   const set = s.pieces.setId === 'default' ? undefined : PIECE_SETS.find((p) => p.id === s.pieces.setId);
@@ -32,8 +35,10 @@ export function start() {
   const scan = () => {
     scheduled = false;
     if (!settings?.enabled) return;
-    scanSlots(settings.translation.showOriginalOnHover, settings.translation.lang);
-    if (summaryOn(settings)) scanSummary(settings.translation.lang, settings.translation.showOriginalOnHover);
+    scanSlots(settings.translation.lang);
+    if (translationActive(settings)) scanRetry(relay, schedule);
+    if (summaryOn(settings)) scanSummary(settings.translation.lang);
+    if (translationActive(settings)) scanOriginal(settings.translation.lang, schedule);
   };
   const schedule = () => {
     if (scheduled) return;
@@ -43,15 +48,19 @@ export function start() {
 
   relay.on((m) => {
     if (m.type === 'translatedPly') {
-      rememberPly({ lang: m.lang, probes: m.probes, original: m.original });
+      rememberPly({ lang: m.lang, probes: m.probes, original: m.original, nodes: m.originalNodes });
       // React renders the text a moment after the response resolves; scan a few times to catch it.
       schedule();
       for (const ms of [120, 400, 1200]) setTimeout(schedule, ms);
+    } else if (m.type === 'plySans') {
+      setChips(m.plyIndex, m.sans);
+    } else if (m.type === 'boardState') {
+      setFlipped(m.flipped);
     } else if (m.type === 'plyError') {
-      if (m.code === 'nokey') toast('Kibitz: add a Gemini API key in the extension panel. Showing original.', undefined, 6000);
-      else if (m.code === 'auth') toast('Kibitz: the API key was rejected. Showing original.', undefined, 6000);
-      else if (m.code === 'quota') toast('Kibitz: quota reached. Showing original.', undefined, 5000);
-      else toast('Kibitz: translation unavailable. Showing original.', undefined, 4000);
+      // Shown inside the commentary box with a "Try again" button (content/retry.ts).
+      recordFailure(m.gameId, m.plyIndex, m.code, m.message);
+      schedule();
+      for (const ms of [150, 600]) setTimeout(schedule, ms);
     }
   });
 
@@ -63,7 +72,9 @@ export function start() {
     setPrehide(summaryOn(s));
     const onBody = () => {
       injectStyle();
-      setHover(s.translation.showOriginalOnHover);
+      installArrows();
+      setShortcuts(s.translation.peekKey, s.translation.toggleKey);
+      installOriginal();
       if (!summaryOn(s)) clearSummary();
       if (!observer) {
         observer = new MutationObserver(schedule);
@@ -78,9 +89,11 @@ export function start() {
   function teardown() {
     observer?.disconnect();
     observer = null;
-    setHover(false);
+    clearOriginal();
+    uninstallArrows();
     clearSlots();
     clearSummary();
+    clearRetry();
     removeUi();
     removeStyles();
   }

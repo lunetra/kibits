@@ -2,7 +2,7 @@
 import { hash } from '../shared/hash';
 import type { LangCode } from '../shared/languages';
 import type { TranslateReq, TranslateRes } from '../shared/messages';
-import type { ModelId } from '../shared/models';
+import { MODELS, type ModelId } from '../shared/models';
 import type { TranslationCache } from './cache';
 import type { KeyPool } from './keys';
 import { GeminiError, generate, usesJson } from './gemini';
@@ -38,6 +38,28 @@ class Semaphore {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const inWords = (ms: number) => {
+  const s = Math.ceil(ms / 1000);
+  if (s < 90) return `${s} s`;
+  const m = Math.round(s / 60);
+  return m < 90 ? `${m} min` : `${Math.round(m / 60)} h`;
+};
+const clock = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+/** Clear, user-facing explanation of a failure (shown in the commentary box and the panel). */
+export function explain(err: GeminiError, model: ModelId): string {
+  switch (err.code) {
+    case 'nokey': return err.message;
+    case 'auth': return 'Your API key was rejected. Check it in the Kibitz panel.';
+    case 'quota': return err.message;
+    case 'model': return `“${MODELS[model].label}” isn't available for your key. Pick another model in the Kibitz panel.`;
+    case 'network': return "Couldn't reach Gemini. Check your internet connection.";
+    case 'timeout': return 'Gemini took too long to answer.';
+    case 'blocked': return 'Gemini declined to translate this text.';
+    case 'invalid': return "Gemini's answer changed the moves or broke the text, so it wasn't used.";
+  }
+}
+
 type Outcome = { texts: string[]; model: ModelId; cached: boolean };
 
 export class Translator {
@@ -67,7 +89,7 @@ export class Translator {
       return { type: 'translated', id: req.id, texts: out.texts, cached: out.cached, ms: Date.now() - t0, model: out.model };
     } catch (e) {
       const err = e instanceof GeminiError ? e : new GeminiError('invalid', (e as Error).message);
-      return { type: 'translateError', id: req.id, code: err.code, message: err.message };
+      return { type: 'translateError', id: req.id, code: err.code, message: explain(err, await this.getModel()) };
     }
   }
 
@@ -85,11 +107,23 @@ export class Translator {
 
     for (let attempt = 0; attempt < 12 && Date.now() < deadline; attempt++) {
       const pick = await this.keys.next();
-      if ('none' in pick) throw lastErr ?? new GeminiError('nokey', 'No API key set');
+      if ('none' in pick) {
+        const sum = await this.keys.summary();
+        if (!sum.total) throw new GeminiError('nokey', 'No API key added yet. Add one in the Kibitz panel.');
+        throw new GeminiError('auth', sum.total === 1 ? 'Your API key was rejected.' : 'All your API keys were rejected.');
+      }
       if ('waitMs' in pick) {
         // Every key is rate-limited: wait for the first one to free up, if it fits in the budget.
         if (Date.now() + pick.waitMs + 1500 > deadline) {
-          throw new GeminiError('quota', `All keys are rate-limited (next free in ${Math.ceil(pick.waitMs / 1000)} s)`);
+          const sum = await this.keys.summary();
+          const all = sum.total > 1 ? `all ${sum.total} keys` : 'your key';
+          const next = sum.nextFreeAt ?? Date.now() + pick.waitMs;
+          throw new GeminiError(
+            'quota',
+            sum.daily && !sum.minute
+              ? `Daily free limit reached on ${all}. It resets at ${clock(next)} (in ${inWords(next - Date.now())}).`
+              : `Rate limit reached on ${all}. Next key is free in ${inWords(next - Date.now())}.`,
+          );
         }
         await sleep(pick.waitMs + 50);
         continue;
@@ -112,7 +146,7 @@ export class Translator {
       } catch (e) {
         const err = e instanceof GeminiError ? e : new GeminiError('network', (e as Error).message);
         lastErr = err;
-        if (err.code === 'quota') { await this.keys.markQuota(k.id, err.retryAfterMs); continue; } // next key
+        if (err.code === 'quota') { await this.keys.markQuota(k.id, err.retryAfterMs, err.quotaKind); continue; } // next key
         if (err.code === 'auth') { await this.keys.markInvalid(k.id, err.message); continue; } // next key
         if (err.code === 'network' && netRetries < 1) { netRetries++; continue; }
         if (err.code === 'invalid' && invalidRetries < 1) { invalidRetries++; continue; }

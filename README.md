@@ -26,17 +26,26 @@ The translation happens *before* the site shows the text, so you never see Engli
   It's translated when you come back to it.
 - **Every translated move is cached forever** on your machine. Reopening or refreshing a game is instant and
   costs nothing. The panel shows the cache size and has a delete button.
-- Hover a translated paragraph to see the English original.
+- **See the original any time:** the small **Original** button under the commentary swaps the text to the
+  English in place (click again to go back), or press **O**, or hold **Alt/Option** and hover. Both shortcuts
+  can be changed in the panel.
+- **Hover a move chip** (e.g. "♘ a4") and the site's own arrow for that move appears on the board.
+- If a move can't be translated you see the English, a clear reason (e.g. "Daily free limit reached…"), and a
+  **Try again** button.
 - A chess glossary keeps terminology consistent. Edit `glossary/fa.json` / `glossary/de.json` to taste.
 
 **Multiple API keys**
-- Add as many Gemini API keys as you like. They're used in turn.
-- A key that hits its rate limit rests until the limit resets, then rejoins automatically.
+- Add as many Gemini API keys as you like. Each move goes to the key that has rested longest.
+- A key that hits a per-minute limit rests briefly; one that hits the daily free cap sits out until the daily
+  reset, then rejoins automatically.
+- Gemini quotas are per Google Cloud **project**: create each key in its own project to actually add capacity.
 - Each key has its own **Test** button and live status.
 
 **Board themes**
 - Eight built-in dark, low-glare presets (Graphite, Forest, Slate, Petrol, Olive, Espresso, Dusk, Ash), tuned
   so both the site's white and black pieces stay clearly readable.
+- Each theme also colours everything else the board draws, so nothing clashes: last-move squares, the
+  selected square, your right-click arrows and square marks, the check glow, and the coordinates.
 - A custom two-colour theme, or colours derived from your own board images (see [Custom boards](#custom-boards-and-pieces)).
 
 **Panel**
@@ -91,7 +100,8 @@ in the page that:
 1. **Wraps `fetch`** for the commentary endpoint. It serves a cached translation if there is one. Otherwise
    it waits for the site's response and until you're looking at that move, then has the background worker
    translate it and hands the translated JSON to the site. Every failure path falls back to the original English.
-2. **Wraps `GPUQueue.writeBuffer`** to swap the board's two square colours in the site's uniform buffer.
+2. **Wraps `GPUQueue.writeBuffer`** to recolour the board: square colours, highlights, arrows and coordinates
+   live in a few GPU buffers whose layout is documented in `docs/SITE-MAP.md` §4d.
 
 The Game Summary is translated at DOM level. Details are in [`docs/`](docs/README.md).
 

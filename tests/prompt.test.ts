@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { buildJsonPayload, buildSystemPrompt, buildTaggedPayload, filterGlossary, parseJson, parseTagged } from '../src/background/prompt';
 
+describe('game context', () => {
+  it('names the side that moved, 0-based (e4 = ply 0 = White)', async () => {
+    const { contextLines } = await import('../src/background/prompt');
+    expect(contextLines({ items: [], hints: [], context: { plyIndex: 0 } })).toContain('move 1., played by White');
+    expect(contextLines({ items: [], hints: [], context: { plyIndex: 1 } })).toContain('move 1..., played by Black');
+  });
+  it('tells the model who "you" is and maps names to colours', async () => {
+    const { contextLines } = await import('../src/background/prompt');
+    const l = contextLines({ items: [], hints: [], context: { userColor: 'white', players: { white: 'Elliot', black: 'bob' } } });
+    expect(l).toContain('The reader plays White');
+    expect(l).toContain('"Elliot" = White, "bob" = Black');
+  });
+});
+
 describe('prompt', () => {
   it('filters the glossary to terms in the source, plus piece names', () => {
     const g = filterGlossary('fa', ['The pin on the e-file wins material.']);
@@ -27,7 +41,7 @@ describe('prompt', () => {
   it('builds payloads and parses answers', () => {
     const input = { items: ['A ⟦0⟧', 'B'], hints: [['⟦0⟧ = move e4 (White)'], []], context: { plyIndex: 3 } };
     expect(buildJsonPayload(input)).toContain('"items":["A ⟦0⟧","B"]');
-    expect(buildJsonPayload(input)).toContain('move 2 (White just moved)');
+    expect(buildJsonPayload(input)).toContain('move 2..., played by Black');
     expect(buildTaggedPayload(input)).toContain('<t i="1">B</t>');
     expect(parseJson('{"t":["x","y"]}', 2)).toEqual(['x', 'y']);
     expect(parseJson('```json\n{"t":["x"]}\n```', 1)).toEqual(['x']);

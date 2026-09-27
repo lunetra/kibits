@@ -8,6 +8,12 @@ let resolveReady!: (c: MainConfig) => void;
 const ready = new Promise<MainConfig>((r) => (resolveReady = r));
 const pending = new Map<string, (data: unknown) => void>();
 const configListeners: Array<(c: MainConfig) => void> = [];
+let retryHandler: ((gameId: string, plyIndex: number) => Promise<unknown>) | null = null;
+
+/** The isolated script asks MAIN to retry a failed move (the "Try again" button). */
+export function onRetry(h: (gameId: string, plyIndex: number) => Promise<unknown>) {
+  retryHandler = h;
+}
 
 export const getConfig = () => config;
 
@@ -60,6 +66,10 @@ export function installBridge() {
       config = m.config;
       resolveReady(config);
       for (const cb of configListeners) { try { cb(config); } catch { /* fail open */ } }
+    } else if (m.type === 'retryPly') {
+      const reply = (data: unknown) => send({ type: 'reply', id: m.id, data });
+      if (!retryHandler) reply({ ok: false, code: 'invalid', message: 'Nothing to retry' });
+      else retryHandler(m.gameId, m.plyIndex).then(reply, (e) => reply({ ok: false, code: 'invalid', message: String(e) }));
     } else if (m.type === 'reply') {
       pending.get(m.id)?.(m.data);
       pending.delete(m.id);

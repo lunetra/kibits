@@ -4,6 +4,15 @@ import type { LangCode } from './languages';
 import type { ModelId } from './models';
 
 export type TranslateKind = 'ply' | 'summary';
+
+/** Who is who, so the model gets "you" and colours right (docs/04). */
+export interface GameContext {
+  /** 0-based half-move index: 0 = White's first move. */
+  plyIndex?: number;
+  /** The side the reader plays (the bottom of the board). */
+  userColor?: 'white' | 'black';
+  players?: { white?: string; black?: string };
+}
 export type ErrorCode = 'timeout' | 'auth' | 'quota' | 'network' | 'blocked' | 'invalid' | 'model' | 'nokey';
 
 // ---------- content ⇄ service worker (chrome.runtime) ----------
@@ -17,7 +26,7 @@ export interface TranslateReq {
   items: string[];
   /** Per item: descriptions of its tokens, e.g. ["⟦0⟧ = move d4 (White)"]. */
   hints: string[][];
-  context?: { gameId?: string; plyIndex?: number };
+  context?: { gameId?: string } & GameContext;
 }
 
 export type TranslateRes =
@@ -30,8 +39,8 @@ export type StatusReport =
 
 /** Per-move cache lookup / store (MAIN → isolated → SW). */
 export interface PlyGet { type: 'plyGet'; id: string; gameId: string; plyIndex: number; lang: LangCode }
-export interface PlyPut { type: 'plyPut'; id: string; gameId: string; plyIndex: number; lang: LangCode; body: string; original: string; probes: string[] }
-export interface PlyHit { body: string; original: string; probes: string[] }
+export interface PlyPut { type: 'plyPut'; id: string; gameId: string; plyIndex: number; lang: LangCode; body: string; original: string; probes: string[]; originalNodes?: RetryNode[][] }
+export interface PlyHit { body: string; original: string; probes: string[]; originalNodes?: RetryNode[][] }
 
 export type RuntimeReq =
   | TranslateReq
@@ -64,19 +73,49 @@ export const EMPTY_STATUS: Status = { lastMs: null, lastError: null, consecutive
 
 // ---------- MAIN ⇄ isolated (window.postMessage) ----------
 
+export interface BoardPalette {
+  /** Square gradients (from, to). */
+  dark: [RGBA, RGBA];
+  light: [RGBA, RGBA];
+  /** Coordinate letters/numbers: drawn in the dark colour on light squares and vice versa. */
+  coords: { dark: RGBA; light: RGBA };
+  /** Last move: the square a piece left, and the square it landed on. */
+  move: { from: RGBA; to: RGBA };
+  /** Clicked/selected piece's square. */
+  selected: RGBA;
+  /** Guided-move source square. */
+  guided: RGBA;
+  /** King in check and right-click square marks (radial: centre → edge). */
+  mark: { center: RGBA; edge: RGBA };
+  /** Arrows you draw with the right mouse button. */
+  arrow: RGBA;
+}
+
 export interface MainConfig {
   enabled: boolean;
   translate: { on: boolean; lang: LangCode; playerWords: boolean };
-  /** Gradient from/to per square colour, sRGB 0–1. null = site default. */
-  board: null | { dark: [RGBA, RGBA]; light: [RGBA, RGBA] };
+  /** Board palette, sRGB 0–1. null = site default. */
+  board: null | BoardPalette;
   /** chrome-extension:// atlas URLs by resolution. null = site default. */
   pieces: null | { '1': string; '2': string; '4': string };
 }
 
+export interface ChipSan { san: string; color?: 'white' | 'black' }
+
+/**
+ * A commentary node rendered by the isolated script (retry result, or the English original when toggled).
+ * `chip` = index of the move chip among the chips the site currently shows in the commentary box.
+ */
+export type RetryNode = { text: string } | { chip: number } | { word: string };
+export type RetryResult =
+  | { ok: true; lang: LangCode; paragraphs: RetryNode[][]; original: string }
+  | { ok: false; code: ErrorCode; message: string };
+
 /** isolated → MAIN */
 export type ToMain =
   | { type: 'config'; config: MainConfig }
-  | { type: 'reply'; id: string; data: unknown };
+  | { type: 'reply'; id: string; data: unknown }
+  | { type: 'retryPly'; id: string; gameId: string; plyIndex: number };
 
 /** MAIN → isolated. Requests carrying an `id` get a `reply` with the same id. */
 export type ToIsolated =
@@ -84,8 +123,12 @@ export type ToIsolated =
   | TranslateReq
   | PlyGet
   | PlyPut
-  | { type: 'translatedPly'; lang: LangCode; probes: string[]; original: string }
-  | { type: 'plyError'; code: ErrorCode; message: string }
+  | { type: 'translatedPly'; lang: LangCode; probes: string[]; original: string; originalNodes?: RetryNode[][] }
+  | { type: 'boardState'; flipped: boolean }
+  /** Move chips of a commentary, in the order the site renders them (for hover arrows). */
+  | { type: 'plySans'; plyIndex: number; sans: ChipSan[] }
+  | { type: 'plyError'; code: ErrorCode; message: string; gameId?: string; plyIndex?: number }
+  | { type: 'reply'; id: string; data: unknown }
   | StatusReport;
 
 export interface Envelope<T> {

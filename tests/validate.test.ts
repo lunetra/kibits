@@ -35,3 +35,16 @@ describe('validate', () => {
     expect(cleanOutput('Translation: «يك كيش»', 'fa')).toBe('یک کیش');
   });
 });
+
+describe('quota classification', () => {
+  it('tells a daily cap from a per-minute limit', async () => {
+    const { quotaKindOf, nextPacificMidnight } = await import('../src/background/gemini');
+    expect(quotaKindOf({ error: { details: [{ violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }] }] } })).toBe('day');
+    expect(quotaKindOf({ error: { details: [{ violations: [{ quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier' }] }] } })).toBe('minute');
+    expect(quotaKindOf({ error: { message: 'Resource has been exhausted' } })).toBe('minute');
+    const now = Date.now();
+    const reset = nextPacificMidnight(now);
+    expect(reset).toBeGreaterThan(now);
+    expect(reset - now).toBeLessThanOrEqual(24 * 3600_000);
+  });
+});

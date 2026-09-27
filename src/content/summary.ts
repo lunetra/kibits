@@ -111,7 +111,7 @@ function setSibling(el: Element, node: HTMLElement | null) {
 
 let seq = 0;
 
-export function scanSummary(lang: LangCode, hover: boolean) {
+export function scanSummary(lang: LangCode) {
   // Drop our nodes whose original React removed.
   for (const [el, node] of siblings) if (!el.isConnected) { node.remove(); siblings.delete(el); }
 
@@ -134,8 +134,7 @@ export function scanSummary(lang: LangCode, hover: boolean) {
       if (el.dataset.kbzSrc !== key) return; // content changed meanwhile; a newer run owns it
       if (r.type === 'translated' && r.texts.length === ser.items.length) {
         const box = render(ser, r.texts, lang);
-        originals.set(box, ser.plain);
-        if (hover) box.dataset.kbzHover = '';
+        originals.set(box, { plain: ser.plain });
         setSibling(el, box);
         el.dataset.kbzDone = 'tr';
       } else {

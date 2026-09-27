@@ -11,9 +11,24 @@ export class GeminiError extends Error {
     /** Retry-After in ms for quota errors, when the API tells us. */
     public retryAfterMs?: number,
     public retryable = false,
+    /** For quota errors: a per-minute limit (short rest) or the daily free-tier cap (rest until reset). */
+    public quotaKind?: QuotaKind,
   ) {
     super(message);
   }
+}
+
+export type QuotaKind = 'minute' | 'day';
+
+/** Next midnight in America/Los_Angeles, when Gemini's daily quotas reset. */
+export function nextPacificMidnight(now = Date.now()): number {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })
+      .formatToParts(now)
+      .map((p) => [p.type, p.value]),
+  );
+  const msIntoDay = ((+parts.hour! * 60 + +parts.minute!) * 60 + +parts.second!) * 1000 + (now % 1000);
+  return now - msIntoDay + 24 * 3600 * 1000;
 }
 
 /** Fields a model rejected with a 400; remembered for the SW lifetime (capability map). */
@@ -51,7 +66,7 @@ function body(o: GenerateOpts) {
   };
 }
 
-interface ApiError { error?: { code?: number; message?: string; status?: string; details?: Array<Record<string, unknown>> } }
+export interface ApiError { error?: { code?: number; message?: string; status?: string; details?: Array<Record<string, unknown>> } }
 
 function parseRetryDelay(e: ApiError): number | undefined {
   for (const d of e.error?.details ?? []) {
@@ -64,6 +79,15 @@ function parseRetryDelay(e: ApiError): number | undefined {
   return undefined;
 }
 
+/** Daily cap vs per-minute limit, from QuotaFailure details (quotaId "…PerDay…") or the message text. */
+export function quotaKindOf(e: ApiError): QuotaKind {
+  const ids = (e.error?.details ?? [])
+    .flatMap((d) => (Array.isArray(d.violations) ? (d.violations as Array<{ quotaId?: string; quotaMetric?: string }>) : []))
+    .map((v) => `${v.quotaId ?? ''} ${v.quotaMetric ?? ''}`)
+    .join(' ');
+  return /per.?day|daily/i.test(`${ids} ${e.error?.message ?? ''}`) ? 'day' : 'minute';
+}
+
 async function errorFrom(res: Response): Promise<GeminiError> {
   let j: ApiError = {};
   try { j = (await res.json()) as ApiError; } catch { /* non-JSON error body */ }
@@ -71,7 +95,12 @@ async function errorFrom(res: Response): Promise<GeminiError> {
   if (res.status === 401 || res.status === 403) return new GeminiError('auth', 'Invalid or unauthorized API key');
   if (res.status === 400 && /api key/i.test(msg)) return new GeminiError('auth', 'Invalid API key');
   if (res.status === 404) return new GeminiError('model', 'Model not available for this key');
-  if (res.status === 429) return new GeminiError('quota', 'Quota reached', parseRetryDelay(j), true);
+  if (res.status === 429) {
+    const kind = quotaKindOf(j);
+    return kind === 'day'
+      ? new GeminiError('quota', 'Daily free limit reached', nextPacificMidnight() - Date.now(), true, 'day')
+      : new GeminiError('quota', 'Per-minute limit reached', parseRetryDelay(j), true, 'minute');
+  }
   if (res.status >= 500) return new GeminiError('network', `Server error (${res.status})`, undefined, true);
   return new GeminiError('invalid', msg);
 }

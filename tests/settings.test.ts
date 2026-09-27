@@ -22,3 +22,13 @@ describe('settings', () => {
     expect(translationActive({ ...DEFAULT_SETTINGS, translation: { ...DEFAULT_SETTINGS.translation, lang: 'en' } })).toBe(false);
   });
 });
+
+describe('original shortcuts', () => {
+  it('defaults to Alt-hover peek and the O toggle, and rejects unknown keys', () => {
+    expect(DEFAULT_SETTINGS.translation.peekKey).toBe('alt');
+    expect(DEFAULT_SETTINGS.translation.toggleKey).toBe('o');
+    const s = migrate({ translation: { peekKey: 'shift', toggleKey: 'r' } });
+    expect(s.translation.peekKey).toBe('shift');
+    expect(s.translation.toggleKey).toBe('o');
+  });
+});

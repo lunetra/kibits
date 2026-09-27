@@ -3,7 +3,7 @@ import { browser } from 'wxt/browser';
 import { LANG_ORDER, LANGUAGES, type LangCode } from '../shared/languages';
 import type { CacheStats, ErrorCode, RuntimeReq, SampleRes } from '../shared/messages';
 import { MODEL_ORDER, MODELS, type ModelId } from '../shared/models';
-import type { Settings } from '../shared/settings';
+import type { PeekKey, Settings, ToggleKey } from '../shared/settings';
 import { BOARD_PRESETS, BOARDS, customTheme, PIECE_SETS } from '../themes';
 import { Row, Section, Segmented, Select, StatusPill, Switch, ThumbGrid, type Thumb } from './components';
 import { Keys, useKeys } from './Keys';
@@ -21,6 +21,8 @@ const ERROR_TEXT: Record<ErrorCode, string> = {
   model: 'Model not available for this key.',
   nokey: 'No API key set.',
 };
+
+const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 
 const formatBytes = (b: number) => (b < 1024 ? `${b} B` : b < 1024 ** 2 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1024 ** 2).toFixed(1)} MB`);
 
@@ -181,8 +183,31 @@ export function App() {
               <Keys keys={keys} model={t.model} />
             </div>
 
-            <Row label="Show original on hover">
-              <Switch label="Show original on hover" checked={t.showOriginalOnHover} onChange={(v) => update((x) => ({ ...x, translation: { ...x.translation, showOriginalOnHover: v } }))} />
+            <Row label="Peek at original">
+              <Select<PeekKey>
+                label="Hold this key and hover the text to see the original"
+                value={t.peekKey}
+                options={[
+                  { value: 'alt', label: isMac ? 'Hold ⌥ Option' : 'Hold Alt', hint: '+ hover' },
+                  { value: 'shift', label: 'Hold ⇧ Shift', hint: '+ hover' },
+                  { value: 'mod', label: isMac ? 'Hold ⌘ Cmd' : 'Hold Ctrl', hint: '+ hover' },
+                  { value: 'none', label: 'Off' },
+                ]}
+                onChange={(v) => update((x) => ({ ...x, translation: { ...x.translation, peekKey: v } }))}
+              />
+            </Row>
+            <Row label="Toggle original">
+              <Select<ToggleKey>
+                label="Press this key to switch all commentary to the original and back"
+                value={t.toggleKey}
+                options={[
+                  { value: 'o', label: 'Press O' },
+                  { value: 't', label: 'Press T' },
+                  { value: 'e', label: 'Press E' },
+                  { value: 'none', label: 'Button only' },
+                ]}
+                onChange={(v) => update((x) => ({ ...x, translation: { ...x.translation, toggleKey: v } }))}
+              />
             </Row>
             <Row label="Translate Game Summary">
               <Switch label="Translate Game Summary" checked={t.translateSummary} onChange={(v) => update((x) => ({ ...x, translation: { ...x.translation, translateSummary: v } }))} />

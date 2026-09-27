@@ -89,10 +89,10 @@ export default defineBackground(() => {
         return null;
       case 'plyGet': {
         const v = await cache.getPly(plyKey(msg.gameId, msg.plyIndex, msg.lang));
-        return (v ? { body: v.body, original: v.original, probes: v.probes } : null) satisfies PlyHit | null;
+        return (v ? { body: v.body, original: v.original, probes: v.probes, originalNodes: v.originalNodes } : null) satisfies PlyHit | null;
       }
       case 'plyPut':
-        await cache.setPly(plyKey(msg.gameId, msg.plyIndex, msg.lang), { body: msg.body, original: msg.original, probes: msg.probes, ts: Date.now() });
+        await cache.setPly(plyKey(msg.gameId, msg.plyIndex, msg.lang), { body: msg.body, original: msg.original, probes: msg.probes, originalNodes: msg.originalNodes, ts: Date.now() });
         return true;
       case 'keysList':
         return pool.list();
@@ -111,7 +111,7 @@ export default defineBackground(() => {
         } catch (e) {
           const err = e as GeminiError;
           if (err.code === 'auth') await pool.markInvalid(k.id, err.message);
-          if (err.code === 'quota') await pool.markQuota(k.id, err.retryAfterMs);
+          if (err.code === 'quota') await pool.markQuota(k.id, err.retryAfterMs, err.quotaKind);
           return { ok: false, code: err.code, message: err.message } satisfies TestKeyRes;
         }
       }

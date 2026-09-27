@@ -9,6 +9,8 @@ export interface BoardTheme {
   /** Extension-relative thumbnail path (lichess-derived boards only). */
   thumb?: string;
   mood?: string;
+  /** OKLCH hue for highlights and arrows. Derived from the dark squares when absent. */
+  accentHue?: number;
 }
 
 export interface PieceSet {

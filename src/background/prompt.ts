@@ -2,9 +2,10 @@
 import deGlossary from '../../glossary/de.json';
 import faGlossary from '../../glossary/fa.json';
 import { LANGUAGES, type LangCode } from '../shared/languages';
+import type { GameContext } from '../shared/messages';
 
 /** Bump whenever prompt/glossary/examples change → cache invalidates naturally. */
-export const PROMPT_VERSION = 2;
+export const PROMPT_VERSION = 3;
 
 type Glossary = Record<string, string>;
 const GLOSSARIES: Partial<Record<LangCode, Glossary>> = { fa: faGlossary, de: deGlossary };
@@ -33,7 +34,11 @@ const LANG_RULES: Partial<Record<LangCode, string>> = {
 - Use colloquial verb forms: می‌کنه، می‌ره، می‌تونی، نمی‌خوای، بود، بزنی، هست → ـه (e.g. «وسوسه‌انگیزه»).
   Use «رو» instead of «را», «یه» instead of «یک», «ولی» instead of «اما»، «اگه» instead of «اگر»، «توی» instead of «در» where natural.
 - Avoid formal/literary words: می‌باشد، گردید، نموده، جهت، لذا، در راستای، منجر به … شدن، در نهایت، بدین ترتیب، صرفاً.
-- Speak to the reader as «تو» (never «شما») when the English says "you".
+- Use «تو» (never «شما») ONLY where the English literally says "you"/"your". Never turn an impersonal or
+  third-person sentence into «تو»: "Capturing with the bishop was stronger" → «زدن با فیل قوی‌تر بود», and
+  "Black should have played…" → «سیاه باید … بازی می‌کرد».
+- Use the words Iranian chess players actually say, including common loanwords (متریال، تمپو، گامبی،
+  فیانکتو). Prefer the glossary; avoid rare or dictionary-only words (e.g. never «مصالح» for material).
 - Short, punchy sentences are fine; split long English sentences when that reads better in Persian.
 - Faithfulness: rewrite freely for natural flow, but keep EXACTLY the same meaning and every detail.
   Never add ideas, jokes or explanations, never drop a detail.
@@ -61,8 +66,13 @@ const EXAMPLES: Array<{ en: string; fa: string; de: string }> = [
   },
   {
     en: 'This check is a tempting distraction, but it misses the chance to settle the central tension immediately. Capturing on f6 with exf6 would have won a piece.',
-    fa: 'این کیش وسوسه‌انگیزه، ولی فرصت اینکه همین الان تکلیف مرکز رو روشن کنی از دست می‌ره. اگه با exf6 روی f6 می‌زدی، یه مهره می‌بردی.',
+    fa: 'این کیش وسوسه‌انگیزه، ولی فرصت روشن کردن تکلیف مرکز رو همین الان از دست می‌ده. زدن روی f6 با exf6 یه مهره می‌برد.',
     de: 'Dieses Schach ist eine verlockende Ablenkung, verpasst aber die Chance, die Spannung im Zentrum sofort aufzulösen. Mit exf6 auf f6 zu schlagen hätte eine Figur gewonnen.',
+  },
+  {
+    en: 'You missed a chance here: Nxe5 wins a clean pawn, since Black has no good way to keep material level.',
+    fa: 'اینجا یه فرصت رو از دست دادی: Nxe5 یه پیاده‌ی مفت می‌بره، چون سیاه راه خوبی برای حفظ تعادل متریال نداره.',
+    de: 'Hier hast du eine Chance verpasst: Nxe5 gewinnt einen sauberen Bauern, da Schwarz das Materialgleichgewicht nicht gut halten kann.',
   },
   {
     en: 'A blunder! After Qxd5, Black loses the exchange to a knight fork on c7.',
@@ -105,15 +115,28 @@ ${examples ? `\nExamples:\n${examples}\n` : ''}`;
 export interface PayloadInput {
   items: string[];
   hints: string[][];
-  context?: { plyIndex?: number };
+  context?: GameContext;
 }
 
-function contextLines(p: PayloadInput): string {
+
+const other = (c: 'white' | 'black') => (c === 'white' ? 'Black' : 'White');
+const cap = (c: string) => c[0]!.toUpperCase() + c.slice(1);
+
+export function contextLines(p: PayloadInput): string {
   const lines: string[] = [];
-  if (p.context?.plyIndex != null) {
-    const ply = p.context.plyIndex;
-    lines.push(`Position: move ${Math.floor((ply - 1) / 2) + 1} (${ply % 2 === 1 ? 'White' : 'Black'} just moved)`);
+  const ctx = p.context;
+  if (ctx?.plyIndex != null) {
+    const ply = ctx.plyIndex;
+    const mover = ply % 2 === 0 ? 'White' : 'Black';
+    lines.push(`This comment is about move ${Math.floor(ply / 2) + 1}${ply % 2 ? '...' : '.'}, played by ${mover}.`);
   }
+  if (ctx?.userColor) {
+    lines.push(
+      `The reader plays ${cap(ctx.userColor)}; their opponent plays ${other(ctx.userColor)}. "You" in the source means the reader (${cap(ctx.userColor)}).`,
+    );
+  }
+  const names = [ctx?.players?.white && `"${ctx.players.white}" = White`, ctx?.players?.black && `"${ctx.players.black}" = Black`].filter(Boolean);
+  if (names.length) lines.push(`Player names: ${names.join(', ')}. Replace these names with their colour (White/Black) in the translation.`);
   p.hints.forEach((h, i) => {
     if (h.length) lines.push(`Placeholders in item ${i}: ${h.join('; ')}`);
   });

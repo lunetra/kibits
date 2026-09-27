@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { applyColors, layoutLooksRight, toFloat32Copy } from '../src/main/gpu-hook';
+import { applyColors, layoutLooksRight, recolorArrows, recolorSquareOverlay, toFloat32Copy } from '../src/main/gpu-hook';
 import { contrast, hexToRgba01, luminance, oklchToHex, shiftLightness } from '../src/shared/color';
 import { BOARD_PRESETS } from '../src/themes/presets';
-import { boardToConfig, customTheme } from '../src/themes';
+import { boardPalette, boardToConfig, customTheme } from '../src/themes';
 
 /** The site's default pieces (measured from its regular4x atlas). */
 const BLACK_PIECE = '#3E3850';
@@ -60,14 +60,54 @@ describe('gpu uniform patch', () => {
     expect(layoutLooksRight(bad)).toBe(false);
   });
 
-  it('writes only the gradient colours and never mutates the input', () => {
+  it('writes board and highlight colours, keeps geometry and orientation, never mutates the input', () => {
     const cfg = boardToConfig(BOARD_PRESETS[0]!)!;
-    const before = Array.from(site);
-    const out = applyColors(site, cfg);
-    expect(Array.from(site)).toEqual(before);
+    const withFlip = new Float32Array(site);
+    withFlip[48] = 1;
+    const before = Array.from(withFlip);
+    const out = applyColors(withFlip, cfg);
+    expect(Array.from(withFlip)).toEqual(before);
     expect(Array.from(out.slice(0, 4))).toEqual(cfg.dark[0].map(Math.fround));
     expect(Array.from(out.slice(20, 24))).toEqual(cfg.light[1].map(Math.fround));
-    expect(Array.from(out.slice(8, 16))).toEqual(before.slice(8, 16));
-    expect(Array.from(out.slice(32))).toEqual(before.slice(32));
+    expect(Array.from(out.slice(8, 16))).toEqual(before.slice(8, 16)); // gradient geometry
+    expect(Array.from(out.slice(32, 36))).toEqual(cfg.mark.center.map(Math.fround));
+    expect(Array.from(out.slice(40, 44))).toEqual(cfg.selected.map(Math.fround));
+    expect(out[48]).toBe(1); // flipped
+  });
+});
+
+describe('square overlay / arrows recolour', () => {
+  const p = boardPalette(BOARD_PRESETS[1]!);
+  const siteMove = [0.624, 0.565, 1];
+
+  it('maps the site move colours (from + lighter "to") and leaves other overlays alone', () => {
+    const f = new Float32Array(768);
+    f.set([0.624, 0.565, 1, 1], 57 * 4); // b8: from
+    f.set([0.733, 0.694, 1, 1], 42 * 4); // c6: to (mixed toward white)
+    f.set([0.9, 0.1, 0.1, 1], 10 * 4); // something else
+    const out = recolorSquareOverlay(f, siteMove, p)!;
+    expect(Array.from(out.slice(57 * 4, 57 * 4 + 3))).toEqual(p.move.from.slice(0, 3).map(Math.fround));
+    expect(Array.from(out.slice(42 * 4, 42 * 4 + 3))).toEqual(p.move.to.slice(0, 3).map(Math.fround));
+    expect(Array.from(out.slice(40, 43))).toEqual([0.9, 0.1, 0.1].map(Math.fround));
+    expect(f[57 * 4]).toBeCloseTo(0.624); // input untouched
+  });
+
+  it('returns null when there is nothing to change', () => {
+    expect(recolorSquareOverlay(new Float32Array(768), siteMove, p)).toBeNull();
+  });
+
+  it('recolours only right-click arrows, keeping alpha, not the white engine arrow', () => {
+    const f = new Float32Array(32);
+    f.set([0, 0, 0, 0, 0.318, 0.749, 0.498, 0.8], 0);
+    f.set([0, 0, 0, 0, 1, 1, 1, 0.8], 8);
+    const out = recolorArrows(f, [0.318, 0.749, 0.498], p)!;
+    expect(Array.from(out.slice(4, 8))).toEqual([...p.arrow.slice(0, 3), 0.8].map(Math.fround));
+    expect(Array.from(out.slice(12, 16))).toEqual([1, 1, 1, 0.8].map(Math.fround));
+  });
+
+  it('derives an accent for grays and custom boards', () => {
+    const c = boardPalette(customTheme({ light: '#9E9EA4', dark: '#73737B', gradient: false }));
+    expect(c.arrow[3]).toBeCloseTo(0.8);
+    expect(c.coords.dark).toEqual(c.dark[0]);
   });
 });

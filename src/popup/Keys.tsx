@@ -52,6 +52,7 @@ export function Keys({ keys, model }: { keys: PublicKey[] | null; model: ModelId
       {keys?.map((k) => {
         const t = tests[k.id];
         const left = k.cooldownUntil ? Math.max(0, Math.ceil((k.cooldownUntil - now) / 1000)) : 0;
+        const leftText = left < 90 ? `${left}s` : left < 5400 ? `${Math.round(left / 60)} min` : `${Math.round(left / 3600)} h`;
         const state = k.state === 'cooling' && left === 0 ? 'ready' : k.state;
         return (
           <div className="key" key={k.id}>
@@ -61,7 +62,7 @@ export function Keys({ keys, model }: { keys: PublicKey[] | null; model: ModelId
               {t && t !== 'busy' ? (
                 t.ok ? <StatusPill tone="ok">✓ Works</StatusPill> : <StatusPill tone="err" title={t.message}>✕ {t.message}</StatusPill>
               ) : state === 'cooling' ? (
-                `Rate-limited · ${left}s`
+                k.limit === 'day' ? `Daily limit · back in ${leftText}` : `Rate-limited · ${leftText}`
               ) : state === 'invalid' ? (
                 <span className="err-text" title={k.lastError}>Rejected</span>
               ) : (
@@ -85,7 +86,12 @@ export function Keys({ keys, model }: { keys: PublicKey[] | null; model: ModelId
           <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Get a free key at aistudio.google.com</a>
         </Callout>
       )}
-      {keys && keys.length > 1 && <p className="note">Keys are used in turn. A rate-limited key rests until its limit resets, then rejoins.</p>}
+      {keys && keys.length > 1 && (
+        <p className="note">
+          Keys take turns, so each one rests between moves. A limited key sits out until its limit resets. Keys from the
+          same Google Cloud project share one quota, so create each key in its own project.
+        </p>
+      )}
     </div>
   );
 }

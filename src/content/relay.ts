@@ -6,6 +6,18 @@ export class Relay {
   readonly channel = crypto.randomUUID();
   private config: MainConfig | null = null;
   private handlers: Array<(m: ToIsolated) => void> = [];
+  private pending = new Map<string, (data: unknown) => void>();
+  private seq = 0;
+
+  /** Request to the MAIN world (e.g. "retry this move"); resolves with its reply or `onTimeout`. */
+  request<R>(msg: Omit<Extract<ToMain, { type: 'retryPly' }>, 'id'>, timeoutMs: number, onTimeout: R): Promise<R> {
+    const id = `i${(this.seq++).toString(36)}`;
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => { this.pending.delete(id); resolve(onTimeout); }, timeoutMs);
+      this.pending.set(id, (d) => { clearTimeout(timer); resolve(d as R); });
+      this.post({ ...msg, id });
+    });
+  }
 
   constructor() {
     window.addEventListener('message', this.onMessage);
@@ -49,6 +61,11 @@ export class Relay {
     }
     if (m.type === 'plyGet' || m.type === 'plyPut') {
       void sendRuntime(m).then((data) => this.post({ type: 'reply', id: m.id, data: data ?? null }));
+      return;
+    }
+    if (m.type === 'reply') {
+      this.pending.get(m.id)?.(m.data);
+      this.pending.delete(m.id);
       return;
     }
     if (m.type === 'report') {

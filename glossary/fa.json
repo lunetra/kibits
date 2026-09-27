@@ -1,5 +1,5 @@
 {
-  "_comment": "English → Persian chess glossary. User (native speaker) should review. Keys are matched case-insensitively on word boundaries.",
+  "_comment": "English → Persian chess glossary, using the words Iranian players actually say (incl. common loanwords like متریال، تمپو). Keys are matched case-insensitively on word boundaries.",
   "king": "شاه",
   "queen": "وزیر",
   "rook": "رخ",
@@ -27,8 +27,8 @@
   "opening": "گشایش",
   "middlegame": "وسط بازی",
   "endgame": "آخر بازی",
-  "development": "گسترش مهره‌ها",
-  "develop": "وارد بازی کردن / گسترش دادن",
+  "development": "توسعه‌ی مهره‌ها",
+  "develop": "مهره وارد بازی کردن",
   "center": "مرکز",
   "kingside": "جناح شاه",
   "queenside": "جناح وزیر",
@@ -72,7 +72,7 @@
   "king safety": "امنیت شاه",
   "hanging": "بی‌دفاع",
   "hanging piece": "مهره‌ی بی‌دفاع",
-  "material": "مصالح",
+  "material": "متریال",
   "advantage": "برتری",
   "decisive advantage": "برتری قاطع",
   "equal": "مساوی",
@@ -93,5 +93,13 @@
   "evaluation": "ارزیابی",
   "line": "واریانت",
   "variation": "واریانت",
-  "move": "حرکت"
+  "move": "حرکت",
+  "material advantage": "برتری متریال",
+  "up material": "متریال بیشتر",
+  "counterplay": "بازی متقابل",
+  "activity": "فعالیت",
+  "compensation": "جبران",
+  "capture": "زدن",
+  "recapture": "پس‌زدن",
+  "opponent": "حریف"
 }

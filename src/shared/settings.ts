@@ -12,6 +12,13 @@ export interface CustomBoard {
   gradient: boolean;
 }
 
+/** Hold this key while hovering a translated block to peek at the English. 'mod' = Cmd on macOS, Ctrl elsewhere. */
+export type PeekKey = 'alt' | 'shift' | 'mod' | 'none';
+/** Press this key (no modifiers) to flip all commentary between the translation and the English. */
+export type ToggleKey = 'o' | 't' | 'e' | 'none';
+const PEEK_KEYS: PeekKey[] = ['alt', 'shift', 'mod', 'none'];
+const TOGGLE_KEYS: ToggleKey[] = ['o', 't', 'e', 'none'];
+
 export interface Settings {
   schemaVersion: typeof SCHEMA_VERSION;
   /** Master switch. */
@@ -20,10 +27,11 @@ export interface Settings {
     enabled: boolean;
     lang: LangCode;
     model: ModelId;
-    showOriginalOnHover: boolean;
     /** Send "White"/"Black" as words the model translates, instead of opaque player nodes. */
     playerWords: boolean;
     translateSummary: boolean;
+    peekKey: PeekKey;
+    toggleKey: ToggleKey;
   };
   board: { themeId: 'default' | 'custom' | string; custom: CustomBoard };
   pieces: { setId: 'default' | string };
@@ -36,9 +44,10 @@ export const DEFAULT_SETTINGS: Settings = {
     enabled: true,
     lang: 'fa',
     model: DEFAULT_MODEL,
-    showOriginalOnHover: true,
     playerWords: true,
     translateSummary: true,
+    peekKey: 'alt',
+    toggleKey: 'o',
   },
   board: { themeId: 'default', custom: { light: '#8A8C90', dark: '#585B5F', gradient: true } },
   pieces: { setId: 'default' },
@@ -71,9 +80,10 @@ export function migrate(raw: unknown): Settings {
       enabled: bool(t.enabled, d.translation.enabled),
       lang: isLangCode(t.lang) ? t.lang : d.translation.lang,
       model: isModelId(t.model) ? t.model : d.translation.model,
-      showOriginalOnHover: bool(t.showOriginalOnHover, d.translation.showOriginalOnHover),
       playerWords: bool(t.playerWords, d.translation.playerWords),
       translateSummary: bool(t.translateSummary, d.translation.translateSummary),
+      peekKey: PEEK_KEYS.includes(t.peekKey as PeekKey) ? (t.peekKey as PeekKey) : d.translation.peekKey,
+      toggleKey: TOGGLE_KEYS.includes(t.toggleKey as ToggleKey) ? (t.toggleKey as ToggleKey) : d.translation.toggleKey,
     },
     board: {
       themeId: str(b.themeId, d.board.themeId),

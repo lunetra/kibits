@@ -99,4 +99,28 @@ describe('Translator', () => {
     expect(await translator(p).translate(req)).toMatchObject({ type: 'translateError', code: 'quota' });
     expect(generate).not.toHaveBeenCalled();
   });
+
+  it('uses the key that rested longest, even after a restart', async () => {
+    let saved: KeyEntry[] = [
+      { id: 'a', key: 'A', addedAt: 0, lastUsedAt: 300 },
+      { id: 'b', key: 'B', addedAt: 1, lastUsedAt: 100 },
+      { id: 'c', key: 'C', addedAt: 2, lastUsedAt: 200 },
+    ];
+    const store = { load: async () => saved, save: async (k: KeyEntry[]) => { saved = k; } };
+    generate.mockResolvedValue(GOOD);
+    await translator(new KeyPool(store)).translate(req);
+    // A fresh pool (service worker restarted) continues the rotation from storage.
+    await translator(new KeyPool(store)).translate({ ...req, items: [`${req.items[0]} !`] });
+    expect(generate.mock.calls.map((c) => (c[0] as { apiKey: string }).apiKey)).toEqual(['B', 'C']);
+  });
+
+  it('explains a daily limit with the reset time', async () => {
+    const p = pool(['A', 'B']);
+    generate.mockRejectedValue(new GeminiError('quota', 'Daily free limit reached', 5 * 3600_000, true, 'day'));
+    const r = await translator(p).translate(req);
+    expect(r).toMatchObject({ type: 'translateError', code: 'quota' });
+    expect((r as { message: string }).message).toMatch(/Daily free limit reached on all 2 keys\. It resets at .+ \(in 5 h\)/);
+    expect((await p.list()).every((k) => k.state === 'cooling' && k.limit === 'day')).toBe(true);
+  });
 });
+
