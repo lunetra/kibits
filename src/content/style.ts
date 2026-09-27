@@ -33,7 +33,10 @@ ${SUMMARY_TEXT}[data-kbz-done="tr"],${SUMMARY_TEXT}[data-kbz-done="pending"]{dis
 .kbz-skel span:nth-child(2){width:92%}.kbz-skel span:nth-child(3){width:64%}
 @keyframes kbz-pulse{50%{opacity:.05}}
 @media (prefers-reduced-motion:reduce){.kbz-skel span{animation:none}}
-[data-kbz-chip]{cursor:pointer}
+[data-kbz-chip=""]{cursor:pointer}
+.kbz-sq-layer{position:relative;display:block;width:0;height:0;margin:0;padding:0;overflow:visible;pointer-events:none;z-index:1}
+.kbz-sq{position:absolute;box-sizing:border-box;border-radius:5px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);pointer-events:auto;cursor:default}
+.kbz-sq.hot{background:rgba(255,255,255,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.28)}
 .kbz-line{display:flex;align-items:center;gap:8px;margin:10px 0 -2px;padding:4px 4px 4px 4px;border-radius:12px;background:rgba(255,255,255,.05);font:500 12.5px/1.4 'Inter Variable',system-ui,sans-serif;direction:ltr;animation:kbz-in .16s ease-out}
 .kbz-line[data-kind="replay"]{background:none;padding:0}
 .kbz-line button{all:unset;display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:8px;cursor:pointer;transition:background .14s,opacity .14s}
@@ -47,7 +50,7 @@ ${SUMMARY_TEXT}[data-kbz-done="tr"],${SUMMARY_TEXT}[data-kbz-done="pending"]{dis
 .kbz-line .kbz-resume{padding:6px 11px 6px 9px;border-radius:999px;background:rgba(255,255,255,.09)}
 .kbz-line .kbz-resume:hover{background:rgba(255,255,255,.15)}
 @media (prefers-reduced-motion:reduce){.kbz-line{animation:none}}
-[data-kbz-chip]:hover{filter:brightness(1.15)}
+[data-kbz-chip=""]:hover{filter:brightness(1.15)}
 [data-kbz-swap],[data-kbz-off]{display:none!important}
 [data-kbz-swap][data-kbz-peek],${SUMMARY_TEXT}[data-kbz-peek]{display:block!important;visibility:visible!important}
 .kbz-orig{margin-top:18px;font-size:16px;line-height:1.6;text-align:left}
@@ -82,11 +85,16 @@ ${SUMMARY_TEXT}[data-kbz-done="tr"],${SUMMARY_TEXT}[data-kbz-done="pending"]{dis
 `;
 
 export function injectStyle() {
-  if (document.getElementById(STYLE_ID)) return;
-  const s = document.createElement('style');
-  s.id = STYLE_ID;
-  s.textContent = css();
-  (document.head ?? document.documentElement).append(s);
+  // Always (re)write it: after the extension is reloaded, a stylesheet left by the previous version may
+  // still be in the page, and it must not win over this version's rules.
+  let s = document.getElementById(STYLE_ID);
+  if (!s) {
+    s = document.createElement('style');
+    s.id = STYLE_ID;
+    (document.head ?? document.documentElement).append(s);
+  }
+  const text = css();
+  if (s.textContent !== text) s.textContent = text;
 }
 
 /** Pre-hide the English Game Summary until we've handled it (docs/05 → "Game Summary"). */
